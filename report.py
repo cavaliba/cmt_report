@@ -29,17 +29,17 @@ if __name__ == "__main__":
 
 
     elastic_url = config.get("elastic_url","http://localhost:9200/")
-    print('elastic_url=', elastic_url)
-    #elastic_url="https://monitor.kheops.ch:443/elk/"
+
+
     elastic_client = Elasticsearch([elastic_url] )
 
+    print('-'*60)
     print(elastic_client.info())
+    print('-'*60)
+
 
     # User makes a request on client side
     user_request = "some_param"
-
-    # Take the user's parameters and put them into a Python
-    # dictionary structured like an Elasticsearch query:
     query_body = {
       "query": {
         "bool": {
