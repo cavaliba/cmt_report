@@ -1,6 +1,7 @@
 # (c) Cavaliva - 2022 - report.py
 
 
+from datetime import date, timedelta
 import yaml
 import json
 from elasticsearch import Elasticsearch
@@ -8,6 +9,13 @@ from elasticsearch import Elasticsearch
 import ssl
 
 
+
+elastic_url = ""
+elastic_index = ""
+elastic_client = ""
+
+
+# ------------------------------------------
 def LoadConfig(file="config.yml"):
 
     try:
@@ -22,6 +30,100 @@ def LoadConfig(file="config.yml"):
         exit(0)
         return {}
 
+
+# ------------------------------------------
+def get_daterange(daterange='d'):
+
+    # values:
+    # d    : current day
+    # d1   : previous day
+    # w    : current week
+    # w 1  : previous week
+    # m    : current month
+    # m-1  : previous month
+
+
+    # response
+    # ["YYYY-MM-DD", "YYYY-MM-DD"]
+
+
+    today = date.today()
+
+    if daterange == 'd':
+        d1 = today
+        d2 = today + timedelta(days=1)
+
+    if daterange == 'd1':
+        d1 = today - timedelta(days=1)
+        d2 = today
+
+    if daterange == 'w':
+        d1 = today - timedelta(days=today.weekday())
+        d2 = d1 + timedelta(days=6)
+
+    if daterange == 'w1':
+        d1 = today - timedelta(days = (today.weekday() + 7) )
+        d2 = d1 + timedelta(days=6)
+
+
+    d1st = d1.strftime("%Y-%m-%d")
+    d2st = d2.strftime("%Y-%m-%d")
+
+    print("dates = ", d1,d2)
+    return (d1st,d2st)
+
+# ------------------------------------------
+def q_groups(daterange="d"):
+    ''' returns hash { group_name => doc counts }
+    '''
+
+    [d1,d2] = get_daterange(daterange)
+    mysizemax  = 200
+
+    query_body = {
+
+        "size": 0,
+        "query": {
+           "bool": {
+               "filter": {
+                   "range": {
+                       "timestamp": {
+                           "format": "yyyy-MM-dd",
+                           "gte": d1,
+                           "lte": d2
+                        }
+                    }
+                }
+            }
+        },
+        "aggs": {
+           "mygroups": {
+               "terms": { 
+                  "field": "cmt_group",
+                  "size": mysizemax
+                }
+            }
+        }
+    }
+
+    result = elastic_client.search(index=elastic_index, body=query_body, size=0)
+    #print(json.dumps(result,indent=2))
+
+    response = {}
+    for item in result["aggregations"]["mygroups"]["buckets"]:
+        key = item["key"]
+        value = item["doc_count"]
+        response[key]=value
+        #print(key,value)
+
+    return response
+
+
+# ------------------------------------------
+# ------------------------------------------
+# ------------------------------------------
+# ------------------------------------------
+# ------------------------------------------
 
 
 if __name__ == "__main__":
@@ -45,40 +147,18 @@ if __name__ == "__main__":
     print(json.dumps(info, indent=2))
 
     print('-'*60)
-    # User makes a request on client side
-    user_request = "some_param"
-    query_body = {
-      "query": {
-        "bool": {
-          "must": {
-            "match": {      
-              "some_field": user_request
-            }
-          }
-        }
-      }
-    }
-
-    query_body = { "query": {"match_all": {} } }
-
-    # call the client's search() method, and have it return results
-    result = elastic_client.search(index=elastic_index, body=query_body, size=999)
-
-    # see how many "hits" it returned using the len() function
-    print ("total hits:", len(result["hits"]["hits"]))
+    response = q_groups("d")
+    print(response)
 
 
-    # '''
-    # MAKE ANOTHER CALL THAT RETURNS
-    # MORE THAN 10 HITS BY USING THE 'size' PARAM
-    # '''
+    #query_body = { "query": {"match_all": {} } }
+    #result = elastic_client.search(index=elastic_index, body=query_body, size=999)
+    #print ("total hits:", len(result["hits"]["hits"]))
+
     # result = elastic_client.search(index="some_index", body=query_body, size=999)
     # all_hits = result['hits']['hits']
-
-    # # see how many "hits" it returned using the len() function
     # print ("total hits using 'size' param:", len(result["hits"]["hits"]))
 
-    # # iterate the nested dictionaries inside the ["hits"]["hits"] list
     # for num, doc in enumerate(all_hits):
     #     print ("DOC ID:", doc["_id"], "--->", doc, type(doc), "\n")
 

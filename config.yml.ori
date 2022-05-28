@@ -6,6 +6,5 @@
 elastic_url: http://localhost:9200/
 elastic_index: 'graylog*'
 
-
 html_target_dir: /var/www/html/cmt_report/
 
