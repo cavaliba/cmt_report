@@ -71,3 +71,4 @@ docs/site/*
 
 config.yml
 venv39
+output/*
