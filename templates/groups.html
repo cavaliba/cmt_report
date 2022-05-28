@@ -1,0 +1,5 @@
+<h1>Groups</h1>
+
+{% for group in data %}
+<p>{{ group.key}} : {{ group.doc_count}} events</p>
+{% endfor %}

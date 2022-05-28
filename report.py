@@ -7,7 +7,7 @@ import json
 from elasticsearch import Elasticsearch
 #from ssl import create_default_context
 import ssl
-
+from jinja2 import Environment, FileSystemLoader
 
 
 elastic_url = ""
@@ -74,7 +74,7 @@ def get_daterange(daterange='d'):
 
 # ------------------------------------------
 def q_groups(daterange="d"):
-    ''' returns hash { group_name => doc counts }
+    ''' returns list [ {key: group_name , doc_count: doc_count} , ...]
     '''
 
     [d1,d2] = get_daterange(daterange)
@@ -107,16 +107,10 @@ def q_groups(daterange="d"):
     }
 
     result = elastic_client.search(index=elastic_index, body=query_body, size=0)
-    #print(json.dumps(result,indent=2))
+    print(json.dumps(result,indent=2))
 
-    response = {}
-    for item in result["aggregations"]["mygroups"]["buckets"]:
-        key = item["key"]
-        value = item["doc_count"]
-        response[key]=value
-        #print(key,value)
+    return result["aggregations"]["mygroups"]["buckets"]
 
-    return response
 
 
 # ------------------------------------------
@@ -128,18 +122,22 @@ def q_groups(daterange="d"):
 
 if __name__ == "__main__":
 
+    # Load Config
     configfile = "config.yml"
     config = LoadConfig(configfile)
     print('-'*60)
     print("CONFIG :",configfile)
     print(json.dumps(config, indent=2))
 
-
+    # init Elastic
     elastic_url = config.get("elastic_url","http://localhost:9200/")
     elastic_index = config.get("elastic_index","cmt*")
-
-
     elastic_client = Elasticsearch([elastic_url])
+
+    # init Jinja2
+    file_loader = FileSystemLoader('templates')
+    env = Environment(loader=file_loader)
+
 
     print('-'*60)
     print("CLUSTER INFOS")
@@ -147,9 +145,14 @@ if __name__ == "__main__":
     print(json.dumps(info, indent=2))
 
     print('-'*60)
-    response = q_groups("d")
-    print(response)
-
+    data = q_groups("d")
+    print(data)
+    template = env.get_template('groups.html')
+    output = template.render(data=data)
+    print(output)
+    # save the results
+    with open("groups.html", "w") as fh:
+        fh.write(output)
 
     #query_body = { "query": {"match_all": {} } }
     #result = elastic_client.search(index=elastic_index, body=query_body, size=999)
