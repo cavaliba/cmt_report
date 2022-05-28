@@ -2,9 +2,7 @@
 
 
 #elastic_url: https://cmt.server.demo:443/elk/
-
 elastic_url: http://localhost:9200/
 elastic_index: 'graylog*'
-
-html_target_dir: /var/www/html/cmt_report/
+html_output_dir: /var/www/html/cmt_report/
 

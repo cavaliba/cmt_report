@@ -1,5 +1,27 @@
-<h1>Groups</h1>
+{% extends 'base.html' %}
+{% block content %}
 
-{% for group in data %}
-<p>{{ group.key}} : {{ group.doc_count}} events</p>
-{% endfor %}
+
+<h1>{{ context.title }}</h1>
+<h5>{{ context.date_label }} : {{ context.date_d1 }}</h5>
+
+
+
+    <table id="table_managed" class="table table-bordered table-striped table-hover table-sm">
+    <thead class="thead-light">
+    <TR><TH>Group name</TH><TH>Event count</TH></TR>
+	</thead>
+
+    <tbody>
+    {% for group in data %}
+	<TR><TD> {{ group.key}}</TD> <TD>{{ group.doc_count}}</TD></TR>
+    {% endfor %}
+    </tbody>
+
+    </table>
+
+
+
+
+{% endblock %}
+

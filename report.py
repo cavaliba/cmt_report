@@ -32,15 +32,15 @@ def LoadConfig(file="config.yml"):
 
 
 # ------------------------------------------
-def get_daterange(daterange='d'):
+def get_daterange(daterange='d0'):
 
     # values:
-    # d    : current day
+    # d0   : current day
     # d1   : previous day
-    # w    : current week
-    # w 1  : previous week
-    # m    : current month
-    # m-1  : previous month
+    # w0   : current week
+    # w1   : previous week
+    # m0   : current month
+    # m1   : previous month
 
 
     # response
@@ -49,35 +49,38 @@ def get_daterange(daterange='d'):
 
     today = date.today()
 
-    if daterange == 'd':
+    if daterange == 'd0':
         d1 = today
         d2 = today + timedelta(days=1)
+        label = "Today (current)"
 
     if daterange == 'd1':
         d1 = today - timedelta(days=1)
         d2 = today
+        label = "Yesterday"
 
-    if daterange == 'w':
+    if daterange == 'w0':
         d1 = today - timedelta(days=today.weekday())
         d2 = d1 + timedelta(days=6)
+        label = "Current Week"
 
     if daterange == 'w1':
         d1 = today - timedelta(days = (today.weekday() + 7) )
         d2 = d1 + timedelta(days=6)
+        label = "Previous Week"
 
 
     d1st = d1.strftime("%Y-%m-%d")
     d2st = d2.strftime("%Y-%m-%d")
 
     print("dates = ", d1,d2)
-    return (d1st,d2st)
+    return (d1st,d2st, label)
 
 # ------------------------------------------
-def q_groups(daterange="d"):
+def q_groups(d1, d2):
     ''' returns list [ {key: group_name , doc_count: doc_count} , ...]
     '''
 
-    [d1,d2] = get_daterange(daterange)
     mysizemax  = 200
 
     query_body = {
@@ -134,24 +137,33 @@ if __name__ == "__main__":
     elastic_index = config.get("elastic_index","cmt*")
     elastic_client = Elasticsearch([elastic_url])
 
+
     # init Jinja2
     file_loader = FileSystemLoader('templates')
     env = Environment(loader=file_loader)
+    html_output_dir = config.get("html_output_dir","/var/www/html/cmt_report")
 
-
+    # Cluster Info
     print('-'*60)
     print("CLUSTER INFOS")
     info = elastic_client.info()
     print(json.dumps(info, indent=2))
 
+    # Q:  GROUPS
     print('-'*60)
-    data = q_groups("d")
+    print("GROUPS TODAY")
+    [d1,d2, label] = get_daterange("d0")
+    data = q_groups(d1=d1,d2=d2)
     print(data)
     template = env.get_template('groups.html')
-    output = template.render(data=data)
-    print(output)
-    # save the results
-    with open("groups.html", "w") as fh:
+    context = { 
+        "title": "Groups and event count", 
+        "date_label": label, 
+        "date_d1":d1,
+        "date_d2":d2
+        }
+    output = template.render(data=data, context=context)
+    with open(html_output_dir+"/groups.html", "w") as fh:
         fh.write(output)
 
     #query_body = { "query": {"match_all": {} } }
