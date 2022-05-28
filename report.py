@@ -15,29 +15,36 @@ def LoadConfig(file="config.yml"):
             config = yaml.load(f, Loader=yaml.SafeLoader)
             #print(json.dumps(jsonconf, indent=2))
             return config
-    except:
-        msg = "could not load YAML configuration %s" % file
+    except Exception as e:
+        msg = "Could not load YAML configuration %s" % file
         print(msg)
+        print(e)
+        exit(0)
         return {}
 
 
 
 if __name__ == "__main__":
 
-    config = LoadConfig()
+    configfile = "config.yml"
+    config = LoadConfig(configfile)
+    print('-'*60)
+    print("CONFIG :",configfile)
     print(json.dumps(config, indent=2))
 
 
     elastic_url = config.get("elastic_url","http://localhost:9200/")
+    elastic_index = config.get("elastic_index","cmt*")
 
 
-    elastic_client = Elasticsearch([elastic_url] )
+    elastic_client = Elasticsearch([elastic_url])
 
     print('-'*60)
-    print(elastic_client.info())
+    print("CLUSTER INFOS")
+    info = elastic_client.info()
+    print(json.dumps(info, indent=2))
+
     print('-'*60)
-
-
     # User makes a request on client side
     user_request = "some_param"
     query_body = {
@@ -55,7 +62,7 @@ if __name__ == "__main__":
     query_body = { "query": {"match_all": {} } }
 
     # call the client's search() method, and have it return results
-    result = elastic_client.search(index="graylog*", body=query_body, size=999)
+    result = elastic_client.search(index=elastic_index, body=query_body, size=999)
 
     # see how many "hits" it returned using the len() function
     print ("total hits:", len(result["hits"]["hits"]))
