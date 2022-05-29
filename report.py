@@ -323,8 +323,8 @@ if __name__ == "__main__":
     print(json.dumps(info, indent=2))
 
 
-    #dateranges = [ "d0", "d1", "w0", "w1"]
-    dateranges = [ "d0"]
+    dateranges = [ "d0", "d1", "w0", "w1"]
+    #dateranges = [ "d0"]
 
     for dr in dateranges:
 
