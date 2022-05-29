@@ -1,0 +1,17 @@
+
+<h2>{{ context.title }}</h2>
+<h5>{{ context.date_label }} : {{ context.date_d1 }}</h5>
+
+<table id="table_managed1" class="table table-bordered table-striped table-hover table-sm">
+
+    <thead class="thead-light">
+    <TR><TH>Key</TH><TH>Value</TH></TR>
+    </thead>
+
+    <tbody>
+    {% for key,value in data.items() %}
+    <TR><TD> {{ key}}</TD> <TD>{{ value }}</TD></TR>
+    {% endfor %}
+    </tbody>
+
+</table>

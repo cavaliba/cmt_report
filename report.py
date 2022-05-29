@@ -79,8 +79,7 @@ def get_daterange(daterange='d0'):
 # ------------------------------------------
 def raw1d_groups_events(d1, d2):
     ''' 
-    groups x nb of events
-    returns list [ {key: group_name , doc_count: doc_count} , ...]
+    returns :  hash { groupname => doc_count, ... }
     '''
 
     query = {
@@ -118,7 +117,6 @@ def raw1d_groups_events(d1, d2):
         groupcount = group["doc_count"]
         data[groupname] = groupcount
     return data
-    #return response["aggregations"]["2"]["buckets"]
 
 # ------------------------------------------
 def raw1d_nodes_events(d1, d2):
@@ -181,7 +179,118 @@ def raw1d_nodes_events(d1, d2):
 
 
 # ------------------------------------------
+def raw1d_groups_critical(d1, d2):
+    ''' 
+    returns :  hash { groupname => count critical, ... }
+    '''
+
+    query = {
+
+        "size": 0,
+        "query": {
+            "bool": {
+               "must":  
+               [
+               {
+                  "query_string": {
+                    "query": "severity:CRITICAL",
+                    "analyze_wildcard": True,
+                    "default_field": "*"
+                  }
+               },    
+               {           
+                   "range": {
+                       "timestamp": {
+                           "format": "yyyy-MM-dd",
+                           "gte": d1,
+                           "lte": d2
+                        }
+                    }
+                }
+                ]
+            }
+        },
+        "aggs": {
+           "2": {
+               "terms": { 
+                  "field": "cmt_group",
+                  "size": 500
+                }
+            }
+        }
+    }
+
+    response = elastic_client.search(index=elastic_index, body=query, size=0)
+    #print(json.dumps(response,indent=2))
+
+    data = {}
+    for group in response["aggregations"]["2"]["buckets"]:
+        groupname = group["key"]
+        groupcount = group["doc_count"]
+        data[groupname] = groupcount
+    return data
+
+
 # ------------------------------------------
+# BETA - Dynamic Filter
+# ------------------------------------------
+
+def raw_events_filtered(daterange="d0", size=10, group=None, node=None, severity=None):
+    ''' 
+    returns :  [ {k:v}, .. ]
+    '''
+
+    [d1,d2, datelabel] = get_daterange(daterange)
+
+    query = {
+        "size": size,
+        "query": {
+            "bool": {
+               "must":  
+               [ 
+               {           
+                   "range": {
+                       "timestamp": {
+                           "format": "yyyy-MM-dd",
+                           "gte": d1,
+                           "lte": d2
+                        }
+                    }
+                }
+                ]
+            }
+        },
+    }
+
+    if node:
+        filter = { 
+            "query_string": {
+                "query": "cmt_node:"+node,
+                "analyze_wildcard": True,
+                "default_field": "*"
+                }
+            }
+        query["query"]["bool"]["must"].append(filter)
+
+    if group:
+        filter = { 
+            "query_string": {
+                "query": "cmt_group:"+group,
+                "analyze_wildcard": True,
+                "default_field": "*"
+                }
+            }
+        query["query"]["bool"]["must"].append(filter)
+
+
+
+    print(json.dumps(query,indent=2))
+    response = elastic_client.search(index=elastic_index, body=query)
+    # [hits][hits] = [ {}, {} ]
+    print(json.dumps(response,indent=2))
+    return response["hits"]["hits"]
+
+
 # ------------------------------------------
 # ------------------------------------------
 # ------------------------------------------
@@ -214,8 +323,8 @@ if __name__ == "__main__":
     print(json.dumps(info, indent=2))
 
 
-    dateranges = [ "d0", "d1", "w0", "w1"]
-    #dateranges = [ "d0"]
+    #dateranges = [ "d0", "d1", "w0", "w1"]
+    dateranges = [ "d0"]
 
     for dr in dateranges:
 
@@ -224,6 +333,10 @@ if __name__ == "__main__":
         print(datelabel)
 
         output_blocs = []
+
+
+        #data = raw_events_filtered(daterange=dr, size=10, node="vmadmin", group="testgrp")
+        #exit()
 
         # TABLE : GROUPS x EVENTS
         data = raw1d_groups_events(d1=date1,d2=date2)
@@ -250,6 +363,20 @@ if __name__ == "__main__":
             }
         output = template.render(data=data, context=context)
         output_blocs.append(output)
+
+
+        # TABLE : Groups x Critical count
+        data = raw1d_groups_critical(d1=date1,d2=date2)
+        print(json.dumps(data,indent=2))
+        template = env.get_template('table_generic_key_value.html')
+        context = { 
+            "title": "CRITICAL count by group", 
+            "date_label": datelabel, 
+            "date_d1":date1,
+            "date_d2":date2
+            }
+        output = template.render(data=data, context=context)
+        output_blocs.append(output)
         
 
         # RENDER full PAGE
@@ -260,7 +387,11 @@ if __name__ == "__main__":
         with open(pagename, "w") as fh:
             fh.write(output)
 
-
+        # create index.html
+        if dr =="d0":
+            pagename = html_output_dir + "/index.html"
+            with open(pagename, "w") as fh:
+                fh.write(output)
 
 
 
