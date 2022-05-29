@@ -77,13 +77,13 @@ def get_daterange(daterange='d0'):
     return (d1st,d2st, label)
 
 # ------------------------------------------
-def q_groups(d1, d2):
-    ''' returns list [ {key: group_name , doc_count: doc_count} , ...]
+def raw1d_groups_events(d1, d2):
+    ''' 
+    groups x nb of events
+    returns list [ {key: group_name , doc_count: doc_count} , ...]
     '''
 
-    mysizemax  = 200
-
-    query_body = {
+    query = {
 
         "size": 0,
         "query": {
@@ -100,20 +100,84 @@ def q_groups(d1, d2):
             }
         },
         "aggs": {
-           "mygroups": {
+           "2": {
                "terms": { 
                   "field": "cmt_group",
-                  "size": mysizemax
+                  "size": 500
                 }
             }
         }
     }
 
-    result = elastic_client.search(index=elastic_index, body=query_body, size=0)
-    print(json.dumps(result,indent=2))
+    response = elastic_client.search(index=elastic_index, body=query, size=0)
+    #print(json.dumps(response,indent=2))
 
-    return result["aggregations"]["mygroups"]["buckets"]
+    data = {}
+    for group in response["aggregations"]["2"]["buckets"]:
+        groupname = group["key"]
+        groupcount = group["doc_count"]
+        data[groupname] = groupcount
+    return data
+    #return response["aggregations"]["2"]["buckets"]
 
+# ------------------------------------------
+def raw1d_nodes_events(d1, d2):
+    ''' 
+    returns hash[group.node]=event_count
+    '''
+
+    query = {
+
+        "size": 0,
+
+          "aggs": {
+            "2": {
+              "terms": {
+                "field": "cmt_group",
+                "size": 500
+              },
+              "aggs": {
+                "3": {
+                  "terms": {
+                    "field": "cmt_node",
+                    "size": 500
+                  }
+                }
+              }
+            }
+          },
+
+        "query": {
+           "bool": {
+               "filter": {
+                   "range": {
+                       "timestamp": {
+                           "format": "yyyy-MM-dd",
+                           "gte": d1,
+                           "lte": d2
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+
+    response = elastic_client.search(index=elastic_index, body=query, size=0)
+    #print(json.dumps(response,indent=2))
+
+    data = {}
+    for group in response["aggregations"]["2"]["buckets"]:
+        groupname = group["key"]
+        #data[groupname] = {}
+        for node in group["3"]["buckets"]:
+            nodename = node["key"]
+            nodecount = node["doc_count"]
+            key = groupname+"."+nodename 
+            #print(groupname, nodename, nodecount)
+            data[key] = nodecount
+
+    return data
 
 
 # ------------------------------------------
@@ -149,22 +213,56 @@ if __name__ == "__main__":
     info = elastic_client.info()
     print(json.dumps(info, indent=2))
 
-    # Q:  GROUPS
-    print('-'*60)
-    print("GROUPS TODAY")
-    [d1,d2, label] = get_daterange("d0")
-    data = q_groups(d1=d1,d2=d2)
-    print(data)
-    template = env.get_template('groups.html')
-    context = { 
-        "title": "Groups and event count", 
-        "date_label": label, 
-        "date_d1":d1,
-        "date_d2":d2
-        }
-    output = template.render(data=data, context=context)
-    with open(html_output_dir+"/groups.html", "w") as fh:
-        fh.write(output)
+
+    dateranges = [ "d0", "d1", "w0", "w1"]
+    #dateranges = [ "d0"]
+
+    for dr in dateranges:
+
+        print('-'*60)
+        [date1,date2, datelabel] = get_daterange(dr)    
+        print(datelabel)
+
+        output_blocs = []
+
+        # TABLE : GROUPS x EVENTS
+        data = raw1d_groups_events(d1=date1,d2=date2)
+        print(json.dumps(data,indent=2))
+        template = env.get_template('table_groups.html')
+        context = { 
+            "title": "Groups and event count", 
+            "date_label": datelabel, 
+            "date_d1":date1,
+            "date_d2":date2
+            }
+        output = template.render(data=data, context=context)
+        output_blocs.append(output)
+
+        # TABLE : NODES x EVENTS
+        data = raw1d_nodes_events(d1=date1,d2=date2)
+        print(json.dumps(data,indent=2))
+        template = env.get_template('table_nodes.html')
+        context = { 
+            "title": "Nodes event count", 
+            "date_label": datelabel, 
+            "date_d1":date1,
+            "date_d2":date2
+            }
+        output = template.render(data=data, context=context)
+        output_blocs.append(output)
+        
+
+        # RENDER full PAGE
+        template = env.get_template('page_global.html')
+        context = {}
+        output = template.render(data=output_blocs, context=context)
+        pagename = html_output_dir + "/page_global_" + dr + ".html"
+        with open(pagename, "w") as fh:
+            fh.write(output)
+
+
+
+
 
     #query_body = { "query": {"match_all": {} } }
     #result = elastic_client.search(index=elastic_index, body=query_body, size=999)

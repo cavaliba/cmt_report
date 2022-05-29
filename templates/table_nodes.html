@@ -1,0 +1,17 @@
+
+<h2>{{ context.title }}</h2>
+<h5>{{ context.date_label }} : {{ context.date_d1 }}</h5>
+
+<table id="table_managed2" class="table table-bordered table-striped table-hover table-sm">
+
+    <thead class="thead-light">
+    <TR><TH>Group / Node</TH><TH>Event count</TH></TR>
+    </thead>
+
+    <tbody>
+    {% for node, value in data.items() %}
+    <TR><TD> {{ node }}</TD> <TD>{{ value }}</TD></TR>
+    {% endfor %}
+    </tbody>
+
+</table>
